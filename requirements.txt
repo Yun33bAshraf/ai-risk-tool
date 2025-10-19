@@ -6,3 +6,6 @@ matplotlib
 seaborn
 openpyxl
 joblib
+imbalanced-learn
+scipy
+xlrd
