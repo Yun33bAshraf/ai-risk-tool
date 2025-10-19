@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Risk Analysis Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="/">AI Risk Analysis</a>
+    </div>
+</nav>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center">
+                    <h4 class="mb-3 text-primary">Upload Risk Data</h4>
+                    <p class="text-muted">Upload your Excel file containing risk descriptions, likelihood, and impact.</p>
+                    <form action="/upload" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Analyze Risks</button>
+                    </form>
+                </div>
+            </div>
+
+            <p class="text-center mt-4 text-muted">
+                Supported columns: <strong>Description, Likelihood, Impact</strong>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
