@@ -31,7 +31,7 @@
 <div class="bg-primary text-white py-4">
     <div class="container">
         <h2 class="fw-bold mb-2">
-            <i class="bi bi-check-circle-fill"></i> Analysis Complete
+            <i class="bi bi-graph-up"></i> AI Risk Analysis Results
         </h2>
         <p class="mb-0">
             <i class="bi bi-file-earmark-excel"></i> File: <strong>{{ results.filename }}</strong> | 
@@ -41,8 +41,114 @@
 </div>
 
 <div class="container mt-4 mb-5">
+
+    <!-- Detailed Risk Table -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0 text-primary">
+                <i class="bi bi-table"></i> Detailed Risk Register with AI Recommendations
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>#</th>
+                            {% if results.analysis.data[0].RiskID is defined %}
+                            <th>Risk ID</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].Description is defined %}
+                            <th>Description</th>
+                            {% endif %}
+                            <th>Likelihood</th>
+                            <th>Impact</th>
+                            <th>Risk Score (Category)</th>
+                            <th>Manual</th>
+                            <th>AI Predicted</th>
+                            {% if results.analysis.data[0].PredictionConfidence is defined %}
+                            <th>Confidence</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].Category is defined %}
+                            <th>Category</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].Owner is defined %}
+                            <th>Owner</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].AISolution is defined %}
+                            <th>AI Solution</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].AITools is defined %}
+                            <th>AI Tools</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in results.analysis.data %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            {% if item.RiskID is defined %}
+                            <td><code>{{ item.RiskID }}</code></td>
+                            {% endif %}
+                            {% if item.Description is defined %}
+                            <td>{{ item.Description[:50] }}{% if item.Description|length > 50 %}...{% endif %}</td>
+                            {% endif %}
+                            <td><span class="badge bg-secondary">{{ item.LikelihoodLabel }}</span></td>
+                            <td><span class="badge bg-secondary">{{ item.ImpactLabel }}</span></td>
+                            <td>
+                                {% if item.RiskScoreLabel == "High" %}
+                                    <span class="badge bg-danger">High</span>
+                                {% elif item.RiskScoreLabel == "Medium" %}
+                                    <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                    <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.ManualRiskCategory == "High" %}
+                                    <span class="badge bg-danger">High</span>
+                                {% elif item.ManualRiskCategory == "Medium" %}
+                                    <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                    <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if item.PredictedRiskLevel == "High" %}
+                                    <span class="badge bg-danger">High</span>
+                                {% elif item.PredictedRiskLevel == "Medium" %}
+                                    <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                    <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
+                            {% if item.PredictionConfidence is defined %}
+                            <td>{{ item.PredictionConfidence }}</td>
+                            {% endif %}
+                            {% if item.Category is defined %}
+                            <td><span class="badge bg-info">{{ item.Category }}</span></td>
+                            {% endif %}
+                            {% if item.Owner is defined %}
+                            <td>{{ item.Owner }}</td>
+                            {% endif %}
+                            {% if item.AISolution is defined %}
+                            <td>{{ item.AISolution }}</td>
+                            {% endif %}
+                            {% if item.AITools is defined %}
+                            <td><small>{{ item.AITools }}</small></td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
     
     <!-- Summary Cards Row -->
+    <h4 class="mb-3 text-primary fw-bold">
+        <i class="bi bi-clipboard2-pulse"></i> Risk Summary
+    </h4>
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card text-white bg-danger text-center shadow metric-card">
@@ -307,109 +413,6 @@
         </div>
     </div>
     {% endif %}
-
-    <!-- Detailed Risk Table -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-white">
-            <h5 class="mb-0 text-primary">
-                <i class="bi bi-table"></i> Detailed Risk Register
-            </h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead class="table-primary">
-                        <tr>
-                            <th>#</th>
-                            {% if results.analysis.data[0].RiskID is defined %}
-                            <th>Risk ID</th>
-                            {% endif %}
-                            {% if results.analysis.data[0].Description is defined %}
-                            <th>Description</th>
-                            {% endif %}
-                            <th>Likelihood</th>
-                            <th>Impact</th>
-                            <th>Risk Score (Category)</th>
-                            <th>Manual</th>
-                            <th>AI Predicted</th>
-                            {% if results.analysis.data[0].PredictionConfidence is defined %}
-                            <th>Confidence</th>
-                            {% endif %}
-                            {% if results.analysis.data[0].Category is defined %}
-                            <th>Category</th>
-                            {% endif %}
-                            {% if results.analysis.data[0].Owner is defined %}
-                            <th>Owner</th>
-                            {% endif %}
-                            {% if results.analysis.data[0].AISolution is defined %}
-                            <th>AI Solution</th>
-                            {% endif %}
-                            {% if results.analysis.data[0].AITools is defined %}
-                            <th>AI Tools</th>
-                            {% endif %}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in results.analysis.data %}
-                        <tr>
-                            <td>{{ loop.index }}</td>
-                            {% if item.RiskID is defined %}
-                            <td><code>{{ item.RiskID }}</code></td>
-                            {% endif %}
-                            {% if item.Description is defined %}
-                            <td>{{ item.Description[:50] }}{% if item.Description|length > 50 %}...{% endif %}</td>
-                            {% endif %}
-                            <td><span class="badge bg-secondary">{{ item.LikelihoodLabel }}</span></td>
-                            <td><span class="badge bg-secondary">{{ item.ImpactLabel }}</span></td>
-                            <td>
-                                {% if item.RiskScoreLabel == "High" %}
-                                    <span class="badge bg-danger">High</span>
-                                {% elif item.RiskScoreLabel == "Medium" %}
-                                    <span class="badge bg-warning text-dark">Medium</span>
-                                {% else %}
-                                    <span class="badge bg-success">Low</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.ManualRiskCategory == "High" %}
-                                    <span class="badge bg-danger">High</span>
-                                {% elif item.ManualRiskCategory == "Medium" %}
-                                    <span class="badge bg-warning text-dark">Medium</span>
-                                {% else %}
-                                    <span class="badge bg-success">Low</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if item.PredictedRiskLevel == "High" %}
-                                    <span class="badge bg-danger">High</span>
-                                {% elif item.PredictedRiskLevel == "Medium" %}
-                                    <span class="badge bg-warning text-dark">Medium</span>
-                                {% else %}
-                                    <span class="badge bg-success">Low</span>
-                                {% endif %}
-                            </td>
-                            {% if item.PredictionConfidence is defined %}
-                            <td>{{ item.PredictionConfidence }}</td>
-                            {% endif %}
-                            {% if item.Category is defined %}
-                            <td><span class="badge bg-info">{{ item.Category }}</span></td>
-                            {% endif %}
-                            {% if item.Owner is defined %}
-                            <td>{{ item.Owner }}</td>
-                            {% endif %}
-                            {% if item.AISolution is defined %}
-                            <td>{{ item.AISolution }}</td>
-                            {% endif %}
-                            {% if item.AITools is defined %}
-                            <td><small>{{ item.AITools }}</small></td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
 
     <!-- Action Buttons -->
     <div class="text-center mb-4">
