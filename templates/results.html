@@ -329,7 +329,7 @@
                             {% endif %}
                             <th>Likelihood</th>
                             <th>Impact</th>
-                            <th>Risk Score</th>
+                            <th>Risk Score (Category)</th>
                             <th>Manual</th>
                             <th>AI Predicted</th>
                             {% if results.analysis.data[0].PredictionConfidence is defined %}
@@ -340,6 +340,12 @@
                             {% endif %}
                             {% if results.analysis.data[0].Owner is defined %}
                             <th>Owner</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].AISolution is defined %}
+                            <th>AI Solution</th>
+                            {% endif %}
+                            {% if results.analysis.data[0].AITools is defined %}
+                            <th>AI Tools</th>
                             {% endif %}
                         </tr>
                     </thead>
@@ -353,9 +359,17 @@
                             {% if item.Description is defined %}
                             <td>{{ item.Description[:50] }}{% if item.Description|length > 50 %}...{% endif %}</td>
                             {% endif %}
-                            <td><span class="badge bg-secondary">{{ item.Likelihood }}</span></td>
-                            <td><span class="badge bg-secondary">{{ item.Impact }}</span></td>
-                            <td><strong>{{ item.RiskScore }}</strong></td>
+                            <td><span class="badge bg-secondary">{{ item.LikelihoodLabel }}</span></td>
+                            <td><span class="badge bg-secondary">{{ item.ImpactLabel }}</span></td>
+                            <td>
+                                {% if item.RiskScoreLabel == "High" %}
+                                    <span class="badge bg-danger">High</span>
+                                {% elif item.RiskScoreLabel == "Medium" %}
+                                    <span class="badge bg-warning text-dark">Medium</span>
+                                {% else %}
+                                    <span class="badge bg-success">Low</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if item.ManualRiskCategory == "High" %}
                                     <span class="badge bg-danger">High</span>
@@ -382,6 +396,12 @@
                             {% endif %}
                             {% if item.Owner is defined %}
                             <td>{{ item.Owner }}</td>
+                            {% endif %}
+                            {% if item.AISolution is defined %}
+                            <td>{{ item.AISolution }}</td>
+                            {% endif %}
+                            {% if item.AITools is defined %}
+                            <td><small>{{ item.AITools }}</small></td>
                             {% endif %}
                         </tr>
                         {% endfor %}

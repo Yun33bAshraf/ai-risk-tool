@@ -4,6 +4,9 @@ Implements heat maps, trend analysis, feature importance, and comparison charts
 Based on usability research (Cöltekin et al., 2021; Ruppert et al., 2022; Huang et al., 2024)
 """
 
+import matplotlib
+# Use non-interactive backend for server-side rendering (avoids Tkinter in Flask)
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd

@@ -37,8 +37,22 @@ def analyze_risks(df):
     # Calculate basic risk score (manual baseline)
     df["RiskScore"] = df["Likelihood"] * df["Impact"]
     
+    # Human-readable labels while retaining numeric values for calculations
+    def _level_to_label(v):
+        try:
+            v = int(v)
+        except Exception:
+            return str(v)
+        mapping = {1: 'Very Low', 2: 'Low', 3: 'Medium', 4: 'High', 5: 'Very High'}
+        return mapping.get(v, str(v))
+    
     # Categorize based on manual score
     df["ManualRiskCategory"] = df["RiskScore"].apply(categorize_risk)
+    
+    # Labels to display in UI
+    df["LikelihoodLabel"] = df["Likelihood"].apply(_level_to_label)
+    df["ImpactLabel"] = df["Impact"].apply(_level_to_label)
+    df["RiskScoreLabel"] = df["ManualRiskCategory"]
 
     # Try to load and use model for predictions
     potential_features = [
@@ -79,6 +93,98 @@ def analyze_risks(df):
     else:
         df["PredictedRiskLevel"] = df["ManualRiskCategory"]
         model_used = False
+
+    # --- AI Solution Recommendations -------------------------------------------------
+    def _ai_recommendation_for_row(row):
+        """Return short AI-driven solution and suggested tools based on description/category."""
+        desc = str(row.get('Description', '')).lower()
+        category = str(row.get('Category', '')).lower()
+
+        def rec(solution, tools):
+            return solution, ", ".join(tools)
+
+        # Keyword-driven heuristics
+        if any(k in desc for k in ["ambigu", "unclear", "confus"]) or category == "requirements":
+            return rec(
+                "Clarify scope; auto-generate acceptance criteria and test cases",
+                ["ChatGPT/GPT-4", "Confluence/Jira AI", "GitHub Copilot Tests"]
+            )
+
+        if ("api" in desc and any(k in desc for k in ["fail", "load", "rate", "timeout"])) or category == "integration" or "external api" in desc:
+            return rec(
+                "Add retries/circuit breaker; AI-generated load tests and SLO monitors",
+                ["k6 or Locust", "Gremlin (chaos)", "Datadog/New Relic AIOps"]
+            )
+
+        if any(k in desc for k in ["inexperienced", "new framework", "skill gap"]) or category == "resource":
+            return rec(
+                "AI pair-programming and code walkthroughs; targeted snippet guidance",
+                ["GitHub Copilot/Cursor", "Sourcegraph Cody", "Stack Overflow AI"]
+            )
+
+        if any(k in desc for k in ["downtime", "deployment", "release"]) or category == "operational":
+            return rec(
+                "Blue/green or canary deploy with auto-rollback; AIOps alerting",
+                ["Argo Rollouts/Flagger", "Dynatrace Davis AI", "AWS DevOps Guru"]
+            )
+
+        if ("validation" in desc or "input" in desc or "payment" in desc) and category == "technical" or "validation" in desc:
+            return rec(
+                "Enforce schema validation and sanitization; run SAST/DAST with autofix",
+                ["Pydantic/Marshmallow", "Semgrep + AI", "GitHub CodeQL", "OWASP ZAP"]
+            )
+
+        if any(k in desc for k in ["delay", "feedback", "client"]) or category == "communication":
+            return rec(
+                "Auto-summarize sessions; extract requirements; generate prototypes",
+                ["Notion/Microsoft Copilot", "Figma AI", "Linear/Productboard AI"]
+            )
+
+        if "document" in desc or category == "process":
+            return rec(
+                "Generate docs from code and create repo Q&A search",
+                ["Mintlify Writer", "Docusaurus + OpenAI embeddings", "Sourcegraph + RAG"]
+            )
+
+        if any(k in desc for k in ["frequent changes", "scope", "change"]) or category == "requirements":
+            return rec(
+                "AI impact analysis; prioritize regression; use feature flags",
+                ["Launchable (ML test selection)", "Copilot Test Gen", "Unleash/Flagsmith"]
+            )
+
+        if any(k in desc for k in ["overlapping", "dev and qa", "responsibil"]) or category == "organisational":
+            return rec(
+                "Auto-generate RACI and PR checklists; enforce quality gates",
+                ["Confluence/Jira AI", "GitHub Actions + Copilot", "TestOps AI"]
+            )
+
+        if any(k in desc for k in ["churn", "complexity", "hotspot"]) or category == "technical":
+            return rec(
+                "Detect hotspots and refactor; quality gates with AI review",
+                ["CodeScene", "SonarQube + Clean Code AI", "CodeClimate"]
+            )
+
+        # Fallback by category
+        fallback = {
+            'security': ("Run SAST/DAST; secrets scanning; fix with guided patches",
+                        ["Semgrep AI", "CodeQL", "OWASP ZAP", "gitleaks"]),
+            'performance': ("Profile with AI-guided hotspots; tune queries/caches",
+                            ["Datadog Watchdog", "Pyroscope/Flamegraphs", "k6"]),
+        }
+        if category in fallback:
+            sol, tools = fallback[category]
+            return rec(sol, tools)
+        return rec("Triage with AI assistant and propose targeted remediation", ["ChatGPT/GPT-4", "Copilot"])
+
+    # Apply recommendations
+    solutions = []
+    tools_list = []
+    for _, r in df.iterrows():
+        sol, tools = _ai_recommendation_for_row(r)
+        solutions.append(sol)
+        tools_list.append(tools)
+    df["AISolution"] = solutions
+    df["AITools"] = tools_list
 
     # Summary statistics
     summary_raw = df["PredictedRiskLevel"].value_counts().to_dict()
