@@ -7,14 +7,11 @@ Aligned with proposal requirements for academic rigor
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     accuracy_score, precision_recall_fscore_support,
-    confusion_matrix, classification_report,
-    brier_score_loss, average_precision_score
+    confusion_matrix, brier_score_loss, average_precision_score
 )
 import joblib
 import os
@@ -27,154 +24,158 @@ os.makedirs("models", exist_ok=True)
 
 
 def calculate_comprehensive_metrics(y_true, y_pred, y_pred_proba, class_names):
-    """
-    Calculate comprehensive evaluation metrics
-    Returns dict with all metrics required by proposal
-    """
-    # Basic metrics
+    if len(y_true) == 0:
+        return {
+            'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0,
+            'brier_score': None, 'pr_auc': None,
+            'confusion_matrix': [],
+            'per_class_metrics': {'precision': [], 'recall': [], 'f1': [], 'support': []}
+        }
+
     accuracy = accuracy_score(y_true, y_pred)
-    precision, recall, f1, support = precision_recall_fscore_support(
-        y_true, y_pred, average='weighted', zero_division=0
-    )
-    
-    # Confusion matrix
-    cm = confusion_matrix(y_true, y_pred)
-    
-    # Per-class metrics
-    precision_per_class, recall_per_class, f1_per_class, _ = precision_recall_fscore_support(
-        y_true, y_pred, average=None, zero_division=0
-    )
-    
-    # Brier score (calibration)
+
+    try:
+        precision_pc, recall_pc, f1_pc, support_pc = precision_recall_fscore_support(
+            y_true, y_pred, average=None, zero_division=0
+        )
+    except:
+        precision_pc = recall_pc = f1_pc = support_pc = np.array([])
+
+    try:
+        precision_w, recall_w, f1_w, _ = precision_recall_fscore_support(
+            y_true, y_pred, average='weighted', zero_division=0
+        )
+    except:
+        precision_w = recall_w = f1_w = 0.0
+
+    try:
+        cm = confusion_matrix(y_true, y_pred)
+        cm_list = cm.tolist() if cm.size > 0 else []
+    except:
+        cm_list = []
+
     brier = None
-    if y_pred_proba is not None:
+    if y_pred_proba is not None and len(class_names) > 1:
         try:
-            n_classes = len(class_names)
-            y_true_binary = np.zeros((len(y_true), n_classes))
-            for i, label in enumerate(y_true):
-                y_true_binary[i, label] = 1
-            brier = np.mean([brier_score_loss(y_true_binary[:, i], y_pred_proba[:, i]) 
-                           for i in range(n_classes)])
+            y_bin = pd.get_dummies(y_true).reindex(columns=range(len(class_names)), fill_value=0).values
+            brier = np.mean([
+                brier_score_loss(y_bin[:, i], y_pred_proba[:, i])
+                for i in range(len(class_names))
+            ])
         except:
             brier = None
-    
-    # PR-AUC
+
     pr_auc = None
-    if y_pred_proba is not None:
+    if y_pred_proba is not None and len(class_names) > 1:
         try:
-            pr_auc = average_precision_score(
-                pd.get_dummies(y_true).values,
-                y_pred_proba,
-                average='weighted'
-            )
+            y_bin = pd.get_dummies(y_true).reindex(columns=class_names, fill_value=0)
+            pr_auc = average_precision_score(y_bin, y_pred_proba, average='weighted')
         except:
             pr_auc = None
-    
+
     return {
         'accuracy': accuracy,
-        'precision': precision,
-        'recall': recall,
-        'f1': f1,
+        'precision': precision_w,
+        'recall': recall_w,
+        'f1': f1_w,
         'brier_score': brier,
         'pr_auc': pr_auc,
-        'confusion_matrix': cm.tolist(),
+        'confusion_matrix': cm_list,
         'per_class_metrics': {
-            'precision': precision_per_class.tolist(),
-            'recall': recall_per_class.tolist(),
-            'f1': f1_per_class.tolist(),
-            'support': support.tolist()
+            'precision': precision_pc.tolist() if len(precision_pc) > 0 else [],
+            'recall': recall_pc.tolist() if len(recall_pc) > 0 else [],
+            'f1': f1_pc.tolist() if len(f1_pc) > 0 else [],
+            'support': support_pc.tolist() if len(support_pc) > 0 else []
         }
     }
 
 
 def train_and_predict(uploaded_file_path, model_type='auto'):
-    """
-    Enhanced prediction with comprehensive metrics
-    Supports pre-trained model or trains new one with full evaluation
-    
-    Args:
-        uploaded_file_path: Path to Excel file with risk data
-        model_type: 'auto' to use saved model, or specify algorithm name
-    
-    Returns:
-        Dict with predictions, metrics, and visualizations
-    """
     df = pd.read_excel(uploaded_file_path)
 
-    # Define feature columns (flexible handling)
     potential_features = [
         "Likelihood", "Impact", "RequirementComplexity",
         "AmbiguityScore", "CodeChurn", "ModuleComplexity", "RevisionCount"
     ]
     
-    # Check which features are available
     available_features = [col for col in potential_features if col in df.columns]
     
     if len(available_features) < 2:
         raise ValueError(f"Need at least Likelihood and Impact columns. Found: {df.columns.tolist()}")
     
-    # Check for target column
     if "RiskLevel" not in df.columns:
         raise ValueError("Missing required column: RiskLevel")
     
-    # Prepare features and target
     X = df[available_features]
     y = df["RiskLevel"]
 
-    # Try loading pre-trained model
+    retrained = True
+    eval_on_train = True
+
     if model_type == 'auto' and os.path.exists(MODEL_PATH) and os.path.exists(ENCODER_PATH):
         model = joblib.load(MODEL_PATH)
         le = joblib.load(ENCODER_PATH)
         
-        # Load feature names if available
         if os.path.exists(FEATURES_PATH):
             saved_features = joblib.load(FEATURES_PATH)
-            # Ensure feature compatibility
             if set(saved_features) != set(available_features):
-                print(f"⚠️ Warning: Feature mismatch. Training new model...")
+                print("Warning: Feature mismatch. Training new model...")
                 model = None
         
         if model is not None:
             retrained = False
-            print("✅ Loaded existing trained model.")
+            print("Loaded existing trained model.")
         else:
             retrained = True
     else:
         retrained = True
 
-    # Train new model if needed
     if retrained:
-        print("⚙️ Training new model using uploaded file...")
+        print("Training new model using uploaded file...")
         le = LabelEncoder()
         y_encoded = le.fit_transform(y)
-        
-        # Split data for evaluation
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
-        )
-        
-        # Train model (Random Forest as default best model)
-        model = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            random_state=42,
-            n_jobs=-1
-        )
-        model.fit(X_train, y_train)
-        
-        # Save model
+
+        n_samples = len(y_encoded)
+        n_classes = len(le.classes_)
+
+        if n_samples < 30:
+            print(f"Dataset too small ({n_samples} rows) → training on full data.")
+            model = RandomForestClassifier(
+                n_estimators=100, max_depth=10, random_state=42, n_jobs=-1
+            )
+            model.fit(X, y_encoded)
+            eval_on_train = True
+            X_train = X_test = X
+            y_train = y_test = y_encoded
+        else:
+            min_test = max(0.2, n_classes / n_samples + 0.05)
+            test_size = min(0.3, min_test)
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y_encoded,
+                test_size=test_size,
+                random_state=42,
+                stratify=y_encoded
+            )
+
+            model = RandomForestClassifier(
+                n_estimators=100, max_depth=10, random_state=42, n_jobs=-1
+            )
+            model.fit(X_train, y_train)
+            eval_on_train = False
+
         joblib.dump(model, MODEL_PATH)
         joblib.dump(le, ENCODER_PATH)
         joblib.dump(available_features, FEATURES_PATH)
-        
-        print(f"✅ Model trained and saved")
+        print("Model trained and saved")
+    else:
+        eval_on_train = True
+        print("Using loaded model → evaluating on full dataset")
 
-    # Predict for all uploaded data
     y_encoded = le.transform(y)
     preds_encoded = model.predict(X)
     preds = le.inverse_transform(preds_encoded)
-    
-    # Get probabilities
+
     if hasattr(model, 'predict_proba'):
         probs = model.predict_proba(X)
         confidences = [f"{max(prob) * 100:.1f}%" for prob in probs]
@@ -182,22 +183,33 @@ def train_and_predict(uploaded_file_path, model_type='auto'):
         probs = None
         confidences = ["N/A"] * len(preds)
 
-    # Add predictions to dataframe
     df["PredictedRisk"] = preds
     df["Confidence"] = confidences
     df["ActualRisk"] = df["RiskLevel"]
 
-    # Calculate comprehensive metrics
+    if eval_on_train:
+        y_true_eval = y_encoded
+        y_pred_eval = model.predict(X)
+        y_proba_eval = model.predict_proba(X) if hasattr(model, "predict_proba") else None
+    else:
+        y_true_eval = y_test
+        y_pred_eval = model.predict(X_test)
+        y_proba_eval = model.predict_proba(X_test) if hasattr(model, "predict_proba") else None
+
     metrics = calculate_comprehensive_metrics(
-        y_encoded, preds_encoded, probs, le.classes_
+        y_true_eval, y_pred_eval, y_proba_eval, le.classes_
     )
-    
-    # Get feature importance if available
+
     feature_importance = None
     if hasattr(model, 'feature_importances_'):
         feature_importance = dict(zip(available_features, model.feature_importances_.tolist()))
 
-    # Prepare detailed results
+    # Safe n_samples
+    try:
+        n_samples = len(y_encoded)
+    except:
+        n_samples = len(df)
+
     results = {
         "accuracy": round(metrics['accuracy'] * 100, 2),
         "precision": round(metrics['precision'] * 100, 2),
@@ -221,16 +233,14 @@ def train_and_predict(uploaded_file_path, model_type='auto'):
                 'support': int(metrics['per_class_metrics']['support'][i])
             }
             for i, class_name in enumerate(le.classes_)
-        }
+        },
+        "data_size_warning": n_samples < 30
     }
 
     return results
 
 
 def get_model_info():
-    """
-    Get information about the currently saved model
-    """
     if not os.path.exists(MODEL_PATH):
         return None
     
